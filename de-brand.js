@@ -52,6 +52,11 @@
       +'<ul class="de-footer-links"><li><a href="/legal/privacy/">Privacy</a></li><li><a href="/legal/terms/">Terms</a></li><li><a href="/legal/refunds/">Refunds</a></li>'
       +(aff?'<li><a href="/legal/affiliate-disclosure/">Affiliate disclosure</a></li>':'')+'</ul>'
       +'<p class="de-footer-note">© '+y+' '+BRAND.name+'. All rights reserved.</p></div>';
+    /* hosts whose <body> is a flex row or grid (e.g. centered landing cards) would put the footer beside the content */
+    var bs=w.getComputedStyle(d.body), disp=bs.display||"";
+    if(/flex/.test(disp)&&!/column/.test(bs.flexDirection||"")){ if(bs.flexWrap==="nowrap") d.body.style.flexWrap="wrap"; f.style.flex="0 0 100%"; f.style.alignSelf="flex-end"; }
+    else if(/grid/.test(disp)){ f.style.gridColumn="1 / -1"; }
+    f.style.width="100%"; f.style.boxSizing="border-box";
     d.body.appendChild(f);
   }
 
