@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>DE brand rollout runner</title>
+<style>body{font:14px/1.5 ui-monospace,monospace;background:#070B14;color:#F8FAFC;padding:16px}pre{white-space:pre-wrap;word-break:break-all}</style></head>
+<body><h1>DE brand rollout runner</h1><p id="s">Starting…</p><pre id="out"></pre>
+<script>
+/* Same-origin client for /de-brandtool-455661.php (server backs up every original before writing).
+   Token is read from the URL fragment (#t=...&mode=dry|apply&batch=N) and never stored in this file. */
+(async function(){
+  var q=new URLSearchParams(location.hash.slice(1)), T=q.get("t"), mode=q.get("mode")||"dry", B=parseInt(q.get("batch")||"0",10), SZ=parseInt(q.get("size")||"40",10);
+  var out=document.getElementById("out"), st=document.getElementById("s"), log=[];
+  function say(x){log.push(x);out.textContent=log.join("\n");}
+  if(!T){st.textContent="no token";return;}
+  var tool="/de-brandtool-455661.php?t="+encodeURIComponent(T);
+  var m=await (await fetch("ops.json?n="+Date.now(),{cache:"no-store"})).json();
+  var ops=m.ops.slice(B*SZ,(B+1)*SZ); st.textContent="mode="+mode+" batch="+B+" ops="+ops.length+" of "+m.ops.length;
+  var batch=[], counts={ok:0,already:0,skip:0,err:0};
+  for(const o of ops){
+    var id=o.d+"/"+o.p;
+    try{
+      var r=await fetch(tool+"&m=get&d="+encodeURIComponent(o.d)+"&p="+encodeURIComponent(o.p),{cache:"no-store"});
+      var j=await r.json();
+      if(!j.ok){say("ERR get "+id+" "+JSON.stringify(j));counts.err++;continue;}
+      if(j.excluded){say("SKIP excluded("+j.excluded+") "+id);counts.skip++;continue;}
+      var c=decodeURIComponent(escape(atob(j.b64)));
+      if(o.skip_if && c.indexOf(o.skip_if)>=0){say("ALREADY "+id);counts.already++;continue;}
+      var bad=null;
+      for(const h of o.hunks){var n=c.split(h[0]).length-1; if(n<1){bad="not found: "+h[0].slice(0,60);break;} if(h[2]&&n!==h[2]){bad="count "+n+"!="+h[2]+": "+h[0].slice(0,40);break;}}
+      if(bad){say("SKIP "+id+" "+bad);counts.skip++;continue;}
+      batch.push({op:"hunks",d:o.d,p:o.p,expect:j.sha1,hunks:o.hunks.map(h=>[h[0],h[1]])});
+      say("READY "+id+" sha="+j.sha1+(j.sha1===o.sha1?" (matches snapshot)":" (differs from snapshot)"));
+    }catch(e){say("ERR "+id+" "+e);counts.err++;}
+  }
+  if(mode==="apply" && batch.length){
+    var fd=new FormData(); fd.append("ops",JSON.stringify(batch));
+    var r=await fetch(tool+"&m=batch",{method:"POST",body:fd}); var t=await r.text();
+    try{var j=JSON.parse(t); j.results.forEach(x=>{say("RESULT "+x[0]+" "+x[1]); if(x[1]==="ok")counts.ok++; else counts.err++;});}catch(e){say("BATCH RESPONSE "+r.status+" "+t.slice(0,400));}
+  }
+  say("DONE "+JSON.stringify(counts)+" ready="+batch.length+" mode="+mode);
+  st.textContent="DONE";
+})();
+</script></body></html>
